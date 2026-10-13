@@ -103,6 +103,21 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         if (user) {
           userId = user.id
           userEmail = user.email
+
+          // Verify user does not already have an active subscription for this plan
+          const { data: existingSub } = await admin
+            .from('subscriptions')
+            .select('id, plan_id, status')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .maybeSingle()
+
+          if (existingSub && existingSub.plan_id === plan.id) {
+            return res.status(409).json({
+              success: false,
+              error: `You already have an active subscription to the ${plan.name} plan.`,
+            })
+          }
         }
       } catch {
         // Fallback to anonymous checkout session

@@ -169,27 +169,124 @@ export async function insertContactMessage(data: {
   }
 }
 
+export async function getPaymentEventStatus(eventId: string): Promise<{
+  exists: boolean
+  status?: 'pending' | 'processing' | 'processed' | 'failed' | 'ignored'
+  retryCount?: number
+  processedAt?: string
+  lastError?: string
+}> {
+  const admin = getSupabaseAdmin()
+  if (!admin) return { exists: false }
+
+  try {
+    const { data, error } = await admin
+      .from('payment_events')
+      .select('status, retry_count, processed_at, last_error, error_message')
+      .eq('event_id', eventId)
+      .maybeSingle()
+
+    if (error || !data) {
+      return { exists: false }
+    }
+
+    return {
+      exists: true,
+      status: data.status,
+      retryCount: data.retry_count ?? 0,
+      processedAt: data.processed_at,
+      lastError: data.last_error || data.error_message || undefined,
+    }
+  } catch {
+    return { exists: false }
+  }
+}
+
+export async function hasProcessedPaymentEvent(eventId: string): Promise<boolean> {
+  const info = await getPaymentEventStatus(eventId)
+  return info.exists && info.status === 'processed'
+}
+
+export async function claimPaymentEventForProcessing(params: {
+  provider: string
+  eventId: string
+  eventType: string
+  payload: Record<string, unknown>
+}): Promise<{
+  shouldProcess: boolean
+  alreadyProcessed?: boolean
+  inFlight?: boolean
+  error?: string
+}> {
+  const admin = getSupabaseAdmin()
+  if (!admin) return { shouldProcess: true }
+
+  try {
+    const statusInfo = await getPaymentEventStatus(params.eventId)
+    if (statusInfo.exists) {
+      if (statusInfo.status === 'processed') {
+        return { shouldProcess: false, alreadyProcessed: true }
+      }
+      if (statusInfo.status === 'processing' && statusInfo.processedAt) {
+        const processingAgeMs = Date.now() - new Date(statusInfo.processedAt).getTime()
+        // If actively claimed within 45 seconds, treat as concurrent in-flight
+        if (processingAgeMs < 45_000) {
+          return { shouldProcess: false, inFlight: true }
+        }
+      }
+    }
+
+    const nowIso = new Date().toISOString()
+    const nextRetryCount = (statusInfo.retryCount ?? 0) + (statusInfo.exists ? 1 : 0)
+
+    const { error } = await admin.from('payment_events').upsert({
+      provider: params.provider,
+      event_id: params.eventId,
+      event_type: params.eventType,
+      payload: params.payload,
+      status: 'processing',
+      retry_count: nextRetryCount,
+      processed_at: nowIso,
+      updated_at: nowIso,
+    }, { onConflict: 'event_id' })
+
+    if (error) {
+      return { shouldProcess: false, error: error.message }
+    }
+
+    return { shouldProcess: true }
+  } catch (err: unknown) {
+    return {
+      shouldProcess: false,
+      error: err instanceof Error ? err.message : 'Failed to claim payment event',
+    }
+  }
+}
+
 export async function recordPaymentEvent(params: {
   provider: string
   eventId: string
   eventType: string
   payload: Record<string, unknown>
-  status: 'processed' | 'ignored' | 'failed'
+  status: 'pending' | 'processing' | 'processed' | 'ignored' | 'failed'
   errorMessage?: string
 }): Promise<{ success: boolean; error?: string }> {
   const admin = getSupabaseAdmin()
   if (!admin) return { success: true }
 
   try {
-    const { error } = await admin.from('payment_events').insert({
+    const nowIso = new Date().toISOString()
+    const { error } = await admin.from('payment_events').upsert({
       provider: params.provider,
       event_id: params.eventId,
       event_type: params.eventType,
       payload: params.payload,
       status: params.status,
-      error_message: params.errorMessage,
-      processed_at: new Date().toISOString(),
-    })
+      error_message: params.errorMessage || null,
+      last_error: params.errorMessage || null,
+      processed_at: nowIso,
+      updated_at: nowIso,
+    }, { onConflict: 'event_id' })
 
     if (error) {
       return { success: false, error: error.message }
@@ -201,19 +298,6 @@ export async function recordPaymentEvent(params: {
       error: err instanceof Error ? err.message : 'Failed to record payment event',
     }
   }
-}
-
-export async function hasProcessedPaymentEvent(eventId: string): Promise<boolean> {
-  const admin = getSupabaseAdmin()
-  if (!admin) return false
-
-  const { data, error } = await admin
-    .from('payment_events')
-    .select('id')
-    .eq('event_id', eventId)
-    .single()
-
-  return !error && Boolean(data)
 }
 
 export async function handleSubscriptionLifecycleEvent(params: {
@@ -237,13 +321,26 @@ export async function handleSubscriptionLifecycleEvent(params: {
       current_period_end?: string
     }
 
-    const userId = data.metadata?.userId
+    let userId = data.metadata?.userId
     const planId = data.metadata?.planId || 'pro'
     const subscriptionId = data.subscription_id || data.id
 
-    // If no valid UUID userId exists in metadata (e.g. anonymous or unauthenticated checkout),
-    // skip DB entitlement mutation safely while recording event
+    // If userId not provided in metadata, attempt fallback lookup by email if available
     if (!userId || userId === 'anonymous' || !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      if (data.customer?.email) {
+        const { data: usersData } = await admin.auth.admin.listUsers()
+        const matched = usersData?.users?.find(
+          (u) => u.email?.toLowerCase() === data.customer?.email?.toLowerCase()
+        )
+        if (matched) {
+          userId = matched.id
+        }
+      }
+    }
+
+    // If still no valid user UUID exists (e.g. anonymous test or unauthenticated checkout),
+    // acknowledge cleanly without throwing DB foreign key violations
+    if (!userId || !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
       return { success: true }
     }
 
@@ -255,7 +352,7 @@ export async function handleSubscriptionLifecycleEvent(params: {
       case 'subscription.renewed':
       case 'payment.succeeded': {
         // Upsert subscription
-        await admin.from('subscriptions').upsert({
+        const { error: subError } = await admin.from('subscriptions').upsert({
           user_id: userId,
           plan_id: planId,
           provider: 'dodo_payments',
@@ -263,17 +360,25 @@ export async function handleSubscriptionLifecycleEvent(params: {
           external_customer_id: data.customer_id || data.customer?.customer_id,
           status: 'active',
           updated_at: nowIso,
-        }, { onConflict: 'user_id, plan_id' }).select()
+        }, { onConflict: 'user_id, plan_id' })
+
+        if (subError) {
+          return { success: false, error: `Failed to upsert subscription: ${subError.message}` }
+        }
 
         // Grant core neural companion entitlements
         const features = ['local_neural_companion', 'priority_inference', 'continuous_context']
         for (const feat of features) {
-          await admin.from('entitlements').upsert({
+          const { error: entError } = await admin.from('entitlements').upsert({
             user_id: userId,
             feature_key: feat,
             is_enabled: true,
             updated_at: nowIso,
           }, { onConflict: 'user_id, feature_key' })
+
+          if (entError) {
+            return { success: false, error: `Failed to grant entitlement ${feat}: ${entError.message}` }
+          }
         }
         break
       }
@@ -281,25 +386,44 @@ export async function handleSubscriptionLifecycleEvent(params: {
       case 'subscription.cancelled':
       case 'subscription.expired': {
         if (subscriptionId) {
-          await admin.from('subscriptions').update({
+          const { error: cancelError } = await admin.from('subscriptions').update({
             status: 'canceled',
             updated_at: nowIso,
           }).eq('external_subscription_id', subscriptionId)
+
+          if (cancelError) {
+            return { success: false, error: `Failed to cancel subscription: ${cancelError.message}` }
+          }
         }
 
-        // Revoke priority entitlements
-        const revocableFeatures = ['priority_inference', 'continuous_context']
-        for (const feat of revocableFeatures) {
-          await admin.from('entitlements').update({
-            is_enabled: false,
-            updated_at: nowIso,
-          }).eq('user_id', userId).eq('feature_key', feat)
+        // Check if user has an active Founding 50 grant before revoking priority entitlements
+        const { data: foundingGrant } = await admin
+          .from('founding_entitlements')
+          .select('id, expires_at, status')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .gt('expires_at', nowIso)
+          .maybeSingle()
+
+        // If user does not have active Founding 50 grant, revoke paid priority entitlements
+        if (!foundingGrant) {
+          const revocableFeatures = ['priority_inference', 'continuous_context']
+          for (const feat of revocableFeatures) {
+            const { error: revError } = await admin.from('entitlements').update({
+              is_enabled: false,
+              updated_at: nowIso,
+            }).eq('user_id', userId).eq('feature_key', feat)
+
+            if (revError) {
+              return { success: false, error: `Failed to revoke entitlement ${feat}: ${revError.message}` }
+            }
+          }
         }
         break
       }
 
       default:
-        // Ignore unhandled non-entitlement events
+        // Ignore unhandled non-entitlement events cleanly
         break
     }
 
@@ -308,6 +432,48 @@ export async function handleSubscriptionLifecycleEvent(params: {
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Error applying subscription lifecycle',
+    }
+  }
+}
+
+/**
+ * Idempotently links a registered user to their verified Founding 50 waitlist grant.
+ */
+export async function linkFounding50Account(userId: string): Promise<{
+  success: boolean
+  status: 'linked' | 'already_linked' | 'not_founding_member' | 'user_not_found' | 'expired'
+  expiresAt?: string
+  error?: string
+}> {
+  const admin = getSupabaseAdmin()
+  if (!admin) {
+    return { success: false, status: 'user_not_found', error: 'Database unconfigured' }
+  }
+
+  try {
+    const { data, error } = await admin.rpc('link_founding_50_account', {
+      target_user_id: userId,
+    })
+
+    if (!error && data) {
+      return {
+        success: Boolean(data.success),
+        status: data.status,
+        expiresAt: data.expires_at,
+        error: data.error,
+      }
+    }
+
+    return {
+      success: false,
+      status: 'not_founding_member',
+      error: error?.message || 'Failed to link account',
+    }
+  } catch (err: unknown) {
+    return {
+      success: false,
+      status: 'not_founding_member',
+      error: err instanceof Error ? err.message : 'Account linking failed',
     }
   }
 }

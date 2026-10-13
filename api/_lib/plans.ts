@@ -27,7 +27,9 @@ export const SERVER_PLANS: Record<string, ServerPlan> = {
     currency: 'USD',
     interval: 'month',
     requiresCheckout: true,
-    dodoProductId: process.env.DODO_PRO_PRODUCT_ID || 'p_osmoo_pro_monthly',
+    get dodoProductId() {
+      return process.env.DODO_PRO_PRODUCT_ID || 'p_osmoo_pro_monthly'
+    },
   },
   max: {
     id: 'max',
@@ -36,7 +38,9 @@ export const SERVER_PLANS: Record<string, ServerPlan> = {
     currency: 'USD',
     interval: 'month',
     requiresCheckout: true,
-    dodoProductId: process.env.DODO_MAX_PRODUCT_ID || 'p_osmoo_max_monthly',
+    get dodoProductId() {
+      return process.env.DODO_MAX_PRODUCT_ID || 'p_osmoo_max_monthly'
+    },
   },
   enterprise: {
     id: 'enterprise',
@@ -50,5 +54,6 @@ export const SERVER_PLANS: Record<string, ServerPlan> = {
 }
 
 export function getServerPlan(planId: string): ServerPlan | undefined {
+  if (!planId || typeof planId !== 'string') return undefined
   return SERVER_PLANS[planId.toLowerCase()]
 }

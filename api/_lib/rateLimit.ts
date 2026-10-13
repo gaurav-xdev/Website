@@ -52,21 +52,48 @@ export function normalizeIpAddress(rawIp: string): string {
   return ip
 }
 
-const HMAC_SECRET = process.env.RATE_LIMIT_HMAC_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'osmoo_ip_privacy_salt_2026'
+/**
+ * Resolves HMAC secret with production fail-closed enforcement.
+ * In production, RATE_LIMIT_HMAC_SECRET or SUPABASE_SERVICE_ROLE_KEY is required.
+ */
+export function getHmacSecret(): string {
+  const envSecret = process.env.RATE_LIMIT_HMAC_SECRET
+  if (envSecret && envSecret.trim().length > 0) {
+    return envSecret.trim()
+  }
+
+  const supabaseSecret = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (supabaseSecret && supabaseSecret.trim().length > 20 && !supabaseSecret.includes('your_supabase_service_role')) {
+    return supabaseSecret.trim()
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+  if (isProduction) {
+    throw new Error('Security configuration error: RATE_LIMIT_HMAC_SECRET or SUPABASE_SERVICE_ROLE_KEY must be configured in production.')
+  }
+
+  return 'osmoo_dev_privacy_salt_local'
+}
 
 /**
  * Extracts client IP using trusted reverse proxy precedence (Vercel / Cloudflare),
  * normalizes the address, and creates a privacy-preserving keyed HMAC hash.
  */
 export function extractClientIpHash(req: ApiRequest): string {
-  // Trust proxy headers provided by verified infrastructure (x-vercel-forwarded-for or first x-forwarded-for)
+  // Trust proxy headers provided by verified infrastructure
+  // 1. Vercel edge sets x-vercel-forwarded-for
+  // 2. Cloudflare edge sets cf-connecting-ip
+  // 3. Fallback to first x-forwarded-for client hop
   const vercelForwarded = req.headers['x-vercel-forwarded-for']
+  const cfConnectingIp = req.headers['cf-connecting-ip']
   const forwarded = req.headers['x-forwarded-for']
   let rawIp = ''
 
-  if (typeof vercelForwarded === 'string') {
+  if (typeof vercelForwarded === 'string' && vercelForwarded.trim()) {
     rawIp = vercelForwarded.split(',')[0].trim()
-  } else if (typeof forwarded === 'string') {
+  } else if (typeof cfConnectingIp === 'string' && cfConnectingIp.trim()) {
+    rawIp = cfConnectingIp.trim()
+  } else if (typeof forwarded === 'string' && forwarded.trim()) {
     rawIp = forwarded.split(',')[0].trim()
   } else if (Array.isArray(forwarded) && forwarded.length > 0) {
     rawIp = forwarded[0].trim()
@@ -79,9 +106,10 @@ export function extractClientIpHash(req: ApiRequest): string {
   }
 
   const normalized = normalizeIpAddress(rawIp)
+  const secret = getHmacSecret()
 
   // Keyed HMAC prevents rainbow-table de-anonymization of public IP pools (schools/offices)
-  return crypto.createHmac('sha256', HMAC_SECRET).update(normalized).digest('hex').slice(0, 32)
+  return crypto.createHmac('sha256', secret).update(normalized).digest('hex').slice(0, 32)
 }
 
 export interface RateLimitOptions {

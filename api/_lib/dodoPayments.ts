@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { getServerPlan } from './plans.js'
 import {
   recordPaymentEvent,
-  hasProcessedPaymentEvent,
+  claimPaymentEventForProcessing,
   handleSubscriptionLifecycleEvent,
 } from './supabaseAdmin.js'
 
@@ -62,6 +62,18 @@ export async function createDodoCheckout(params: CreateCheckoutParams): Promise<
       success: false,
       setupMode: true,
       error: 'Dodo Payments provider is currently in setup mode. Live checkout will activate once commercial keys are provisioned.',
+    }
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+  const isLiveEnv = process.env.DODO_PAYMENTS_ENVIRONMENT === 'live_mode'
+  const hasPlaceholderProductId = !plan.dodoProductId || plan.dodoProductId.startsWith('p_osmoo_')
+
+  if ((isProduction || isLiveEnv) && hasPlaceholderProductId) {
+    return {
+      success: false,
+      setupMode: true,
+      error: `Live Dodo Payments product ID is not configured for ${plan.name} plan. Please set DODO_${plan.id.toUpperCase()}_PRODUCT_ID in environment.`,
     }
   }
 
@@ -215,27 +227,43 @@ export async function processWebhookEvent(
     return { status: 400, message: 'Missing event ID' }
   }
 
-  // Idempotency check: discard if already processed
-  const alreadyProcessed = await hasProcessedPaymentEvent(eventId)
-  if (alreadyProcessed) {
-    return { status: 200, message: 'Event already processed (idempotent)' }
+  // Atomically claim the event for processing
+  const claim = await claimPaymentEventForProcessing({
+    provider: 'dodo_payments',
+    eventId,
+    eventType,
+    payload: event.data || {},
+  })
+
+  if (!claim.shouldProcess) {
+    if (claim.alreadyProcessed) {
+      return { status: 200, message: 'Event already processed (idempotent)' }
+    }
+    if (claim.inFlight) {
+      return { status: 429, message: 'Event is currently being processed by another worker' }
+    }
+    return { status: 500, message: claim.error || 'Failed to claim payment event' }
   }
 
   // Process lifecycle states
   try {
-    // Record event in payment_events table for durability & audit
+    // Apply subscription & entitlement updates server-side
+    const lifecycleResult = await handleSubscriptionLifecycleEvent({
+      eventType,
+      payload: event.data || {},
+    })
+
+    if (!lifecycleResult.success) {
+      throw new Error(lifecycleResult.error || 'Failed to apply subscription lifecycle mutations')
+    }
+
+    // Mark event as processed only after mutations succeed
     await recordPaymentEvent({
       provider: 'dodo_payments',
       eventId,
       eventType,
       payload: event.data || {},
       status: 'processed',
-    })
-
-    // Apply subscription & entitlement updates server-side
-    await handleSubscriptionLifecycleEvent({
-      eventType,
-      payload: event.data || {},
     })
 
     return { status: 200, message: `Processed ${eventType} successfully` }
@@ -250,6 +278,7 @@ export async function processWebhookEvent(
       errorMessage: errorMsg,
     })
 
+    // Return HTTP 500 so Dodo Payments retries
     return { status: 500, message: errorMsg }
   }
 }

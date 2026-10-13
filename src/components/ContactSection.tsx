@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { motion } from 'motion/react'
-import { Mail, Send, CheckCircle2, Clock, ShieldCheck } from 'lucide-react'
+import { Mail, Send, CheckCircle2, Clock, ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
+import { submitContact } from '../lib/api/client'
+import { soundEngine } from '../utils/soundEngine'
 
 export function ContactSection() {
   const [name, setName] = useState('')
@@ -8,10 +10,34 @@ export function ContactSection() {
   const [subject, setSubject] = useState('Enterprise Pilot')
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [serverMessage, setServerMessage] = useState<string | null>(null)
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!email || !message) return
+    if (!name || !email || !message || isLoading) return
+
+    setIsLoading(true)
+    setErrorMessage(null)
+
+    const res = await submitContact({
+      name,
+      email,
+      category: subject,
+      message,
+    })
+
+    setIsLoading(false)
+
+    if (!res.success) {
+      setErrorMessage(res.error || 'Failed to submit inquiry. Please try again.')
+      soundEngine.playClick()
+      return
+    }
+
+    soundEngine.playSuccess()
+    setServerMessage(res.message || 'Inquiry transmitted and queued.')
     setSent(true)
   }
 
@@ -63,7 +89,7 @@ export function ContactSection() {
                   </div>
                   <div>
                     <div className="font-semibold text-white">Inquiries</div>
-                    <div className="text-zinc-400 text-xs">contact@osmoo.ai</div>
+                    <div className="text-zinc-400 text-xs">contact@osmoo.in</div>
                   </div>
                 </div>
 
@@ -107,6 +133,13 @@ export function ContactSection() {
             <div className="p-7 sm:p-9 rounded-2xl border border-[#22202d] bg-[#0c0b11] shadow-2xl relative">
               {!sent ? (
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {errorMessage && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="contact-name" className="block text-xs font-semibold text-zinc-300 mb-2">
@@ -116,10 +149,11 @@ export function ContactSection() {
                         id="contact-name"
                         type="text"
                         required
+                        disabled={isLoading}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Dr. Jordan Vance"
-                        className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors disabled:opacity-50"
                       />
                     </div>
 
@@ -131,10 +165,11 @@ export function ContactSection() {
                         id="contact-email"
                         type="email"
                         required
+                        disabled={isLoading}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="jordan@research.org"
-                        className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -146,8 +181,9 @@ export function ContactSection() {
                     <select
                       id="contact-topic"
                       value={subject}
+                      disabled={isLoading}
                       onChange={(e) => setSubject(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm focus:outline-none focus:border-zinc-300 transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm focus:outline-none focus:border-zinc-300 transition-colors disabled:opacity-50"
                     >
                       <option value="Enterprise Pilot">Enterprise Cohort Pilot (10+ Workstations)</option>
                       <option value="Research & Academic">Laboratory & Research Collaboration</option>
@@ -164,19 +200,30 @@ export function ContactSection() {
                       id="contact-message"
                       rows={4}
                       required
+                      disabled={isLoading}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Outline your operating environment (macOS/Windows), required toolchain integrations, and workload objectives..."
-                      className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors resize-none leading-relaxed"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#07060a] border border-[#242230] text-white text-xs sm:text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-300 transition-colors resize-none leading-relaxed disabled:opacity-50"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-white text-black font-bold text-xs sm:text-sm hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-lg shadow-white/5 cursor-pointer"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-white text-black font-bold text-xs sm:text-sm hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-lg shadow-white/5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>Transmit Engineering Inquiry</span>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Transmitting Inquiry...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Transmit Engineering Inquiry</span>
+                      </>
+                    )}
                   </button>
                 </form>
               ) : (
@@ -186,13 +233,14 @@ export function ContactSection() {
                   </div>
                   <h3 className="text-xl font-bold text-white">Inquiry Transmitted</h3>
                   <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-                    Thank you, <span className="text-white font-medium">{name || 'Researcher'}</span>. Your inquiry has been routed to the technical team. We will review your operating environment details and respond to <span className="text-white font-medium">{email}</span> within 24 hours.
+                    {serverMessage || `Thank you, ${name || 'Researcher'}. Your inquiry has been routed to the technical team. We will review your operating environment details and respond to ${email} within 24 hours.`}
                   </p>
                   <button
                     type="button"
                     onClick={() => {
                       setSent(false)
                       setMessage('')
+                      setServerMessage(null)
                     }}
                     className="mt-4 px-6 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
                   >

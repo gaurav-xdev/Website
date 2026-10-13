@@ -1,21 +1,37 @@
 import { useState, useEffect } from 'react'
-import { Menu, X, Volume2, VolumeX } from 'lucide-react'
+import { Menu, X, Volume2, VolumeX, User, CheckCircle2 } from 'lucide-react'
 import { soundEngine } from '../utils/soundEngine'
+import { getCurrentSession, subscribeToAuth } from '../lib/supabase/client'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface NavbarProps {
   activePage: string
   onNavigate: (page: string) => void
   onOpenModal: () => void
+  onOpenAuthModal?: () => void
 }
 
-export function Navbar({ activePage, onNavigate, onOpenModal }: NavbarProps) {
+export function Navbar({ activePage, onNavigate, onOpenModal, onOpenAuthModal }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isSoundOn, setIsSoundOn] = useState(false)
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null)
 
   useEffect(() => {
     setIsSoundOn(soundEngine.isEnabled())
-    const unsubscribe = soundEngine.subscribe((val) => setIsSoundOn(val))
-    return unsubscribe
+    const unsubscribeSound = soundEngine.subscribe((val) => setIsSoundOn(val))
+
+    getCurrentSession().then((session) => {
+      setCurrentUser(session?.user ?? null)
+    })
+
+    const unsubscribeAuth = subscribeToAuth((_event, session) => {
+      setCurrentUser(session?.user ?? null)
+    })
+
+    return () => {
+      unsubscribeSound()
+      unsubscribeAuth()
+    }
   }, [])
 
   const navLinks = [
@@ -38,7 +54,7 @@ export function Navbar({ activePage, onNavigate, onOpenModal }: NavbarProps) {
   }
 
   return (
-    <header className="relative z-30 w-full flex items-center justify-between px-4 sm:px-8 md:px-12 pt-5 sm:pt-7 pb-3 select-none">
+    <header className="relative z-30 w-full flex items-center justify-between px-4 sm:px-8 md:px-12 pt-5 sm:pt-7 pb-3 select-none pointer-events-auto">
       {/* Brand Logo */}
       <button
         type="button"
@@ -98,15 +114,45 @@ export function Navbar({ activePage, onNavigate, onOpenModal }: NavbarProps) {
           )}
         </button>
 
+        {/* Account / Session Button */}
+        <button
+          type="button"
+          onClick={() => {
+            soundEngine.playClick()
+            onOpenAuthModal?.()
+          }}
+          title={currentUser ? `Signed in as ${currentUser.email}` : 'Account profile and sign in'}
+          aria-label={currentUser ? `Account: ${currentUser.email}` : 'Open account authentication session'}
+          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] sm:text-[12px] font-medium transition-all active:scale-[0.97] cursor-pointer ${
+            currentUser
+              ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-200 hover:border-emerald-400'
+              : 'border-[#2d2b38] bg-[#121118]/80 text-[#d0ceda] hover:border-purple-400 hover:text-white'
+          }`}
+        >
+          {currentUser ? (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline max-w-[120px] truncate">
+                {currentUser.email?.split('@')[0] || 'Account'}
+              </span>
+            </>
+          ) : (
+            <>
+              <User className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Account</span>
+            </>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={() => {
             soundEngine.playClick()
             onOpenModal()
           }}
-          className="inline-flex items-center justify-center px-4 py-1.5 rounded-full border border-[#3a3842] bg-[#1a1920]/80 text-[#ebeaef] text-[11px] sm:text-[12px] font-medium hover:border-zinc-400 hover:bg-[#23212c] transition-all active:scale-[0.97] cursor-pointer"
+          className="inline-flex items-center justify-center px-4 py-1.5 rounded-full border border-purple-500/40 bg-[#1a1920]/90 text-[#ebeaef] text-[11px] sm:text-[12px] font-medium hover:border-purple-300 hover:bg-[#23212c] transition-all active:scale-[0.97] cursor-pointer"
         >
-          Get OSMOO
+          Join the Waitlist
         </button>
 
         {/* Mobile Hamburger Toggle */}
@@ -137,15 +183,42 @@ export function Navbar({ activePage, onNavigate, onOpenModal }: NavbarProps) {
               {item.label}
             </button>
           ))}
-          <div className="pt-2 border-t border-[#1a1726]">
+          <div className="pt-2 border-t border-[#1a1726] space-y-2">
             <button
               type="button"
               onClick={() => {
-                handleLinkClick('download')
+                setMobileMenuOpen(false)
+                soundEngine.playClick()
+                onOpenAuthModal?.()
+              }}
+              className={`w-full py-2.5 rounded-xl border font-semibold text-xs text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                currentUser
+                  ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200'
+                  : 'border-purple-500/30 bg-purple-950/20 text-purple-200'
+              }`}
+            >
+              {currentUser ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="truncate max-w-[200px]">{currentUser.email}</span>
+                </>
+              ) : (
+                <>
+                  <User className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Account / Sign In</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false)
+                soundEngine.playClick()
+                onOpenModal()
               }}
               className="w-full py-2.5 rounded-xl bg-white text-black font-semibold text-xs text-center cursor-pointer"
             >
-              Download OSMOO v0.9.4
+              Join the Waitlist
             </button>
           </div>
         </div>

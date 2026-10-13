@@ -1,18 +1,34 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Check, Sparkles, Shield, ArrowRight, Info } from 'lucide-react'
+import { Check, Sparkles, Shield, ArrowRight, Info, Loader2, AlertCircle, ExternalLink } from 'lucide-react'
 import type { CompanionExpression } from '../components/PersistentCompanionScene'
 import { soundEngine } from '../utils/soundEngine'
+import { createCheckout } from '../lib/api/client'
+import { getCurrentSession } from '../lib/supabase/client'
 
 interface PricingPageProps {
   onNavigate?: (tab: string) => void
   onSelectPlan?: (planName: string) => void
   onHoverPlan?: (expression: CompanionExpression) => void
+  onOpenEarlyAccessModal?: () => void
   activeExpression?: CompanionExpression
 }
 
-export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpression = 'neutral' }: PricingPageProps) {
+export function PricingPage({
+  onNavigate,
+  onSelectPlan,
+  onHoverPlan,
+  onOpenEarlyAccessModal,
+  activeExpression = 'neutral',
+}: PricingPageProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const [checkoutNotice, setCheckoutNotice] = useState<{
+    title: string
+    message: string
+    type: 'info' | 'error' | 'success'
+  } | null>(null)
+
 
   const plans: {
     name: string
@@ -37,7 +53,7 @@ export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpre
       period: 'forever',
       description: 'The core OSMOO experience running completely on your local device hardware.',
       highlight: false,
-      ctaText: 'Download Free',
+      ctaText: 'Join Free Waitlist',
       reactionHint: 'Cute sad puppy eyes & gentle downward head droop',
       features: [
         'Full native on-device model execution',
@@ -53,17 +69,18 @@ export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpre
     },
     {
       name: 'Pro',
-      badge: 'Most Popular',
+      badge: 'The Founding 50',
       expression: 'pro',
       priceMonthly: 24,
       priceAnnual: 19,
       period: 'per month',
       description: 'For software engineers and creators demanding high-throughput frontier AI coordination.',
       highlight: true,
-      ctaText: 'Get OSMOO Pro',
+      ctaText: 'Join Waitlist (Claim Pro)',
       reactionHint: 'Smiling squint & warm inquisitive head tilt',
       features: [
         'Everything in Free, plus:',
+        'The Founding 50: 12 months free for first 50 verified signups',
         'Bring-your-own frontier API keys (Claude, GPT, Gemini)',
         'Multi-project persistent neural memory',
         'Background multi-step autonomous dry-run execution',
@@ -119,6 +136,67 @@ export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpre
       planned: [],
     },
   ]
+
+  const handlePlanAction = async (plan: (typeof plans)[0]) => {
+    soundEngine.playClick()
+    if (plan.name === 'Enterprise') {
+      onNavigate?.('contact')
+      return
+    }
+
+    if (plan.name === 'Free') {
+      onSelectPlan?.(plan.name)
+      if (onOpenEarlyAccessModal) {
+        onOpenEarlyAccessModal()
+      } else {
+        onNavigate?.('download')
+      }
+      return
+    }
+
+    if (plan.name === 'Pro') {
+      // Direct users to waitlist to claim The Founding 50 Pro reward
+      setCheckoutNotice({
+        title: 'The Founding 50 Offer Active',
+        message:
+          'Paid checkouts are currently reserved while the desktop engine is in preview. Join the Early Access waitlist to qualify for 12 complimentary months of OSMOO Pro.',
+        type: 'info',
+      })
+      if (onOpenEarlyAccessModal) {
+        onOpenEarlyAccessModal()
+      }
+      return
+    }
+
+    // Max: Server-side Checkout or Setup Mode Notice
+    setLoadingPlan(plan.name)
+    setCheckoutNotice(null)
+
+    const session = await getCurrentSession()
+    const res = await createCheckout(
+      {
+        planId: plan.name.toLowerCase() as 'pro' | 'max',
+        billingInterval: billingCycle === 'annual' ? 'year' : 'month',
+      },
+      session?.access_token
+    )
+
+    setLoadingPlan(null)
+
+    if (res.success && res.data?.checkoutUrl && res.data.checkoutUrl.startsWith('http')) {
+      window.location.assign(res.data.checkoutUrl)
+      return
+    }
+
+    // Honest handling of setup mode or server configuration
+    setCheckoutNotice({
+      title: 'Commercial Payment Gateway in Setup Mode',
+      message:
+        res.error ||
+        `Dodo Payments merchant onboarding is being finalized for Osmiora Computational Systems. To reserve your ${plan.name} seat and join the verified cohort, please register for Early Access.`,
+      type: 'info',
+    })
+  }
 
   return (
     <div className="relative w-full min-h-screen py-16 sm:py-24 px-4 sm:px-6 md:px-8 flex flex-col items-center justify-center overflow-hidden">
@@ -179,6 +257,41 @@ export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpre
             </div>
           </div>
         </div>
+
+        {/* Dynamic Gateway Status Notification Banner */}
+        {checkoutNotice && (
+          <div className="w-full max-w-2xl mb-8 p-4 rounded-2xl bg-[#161224] border border-purple-500/40 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-white mb-0.5">{checkoutNotice.title}</div>
+                <div className="text-[11px] sm:text-xs text-zinc-300 leading-relaxed">{checkoutNotice.message}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {onOpenEarlyAccessModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.playClick()
+                    onOpenEarlyAccessModal()
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+                >
+                  <span>Join Waitlist</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setCheckoutNotice(null)}
+                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 text-xs transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ─── 4-TIER PRICING CARDS GRID ─── */}
         <div
@@ -299,25 +412,29 @@ export function PricingPage({ onNavigate, onSelectPlan, onHoverPlan, activeExpre
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
+                    disabled={loadingPlan === plan.name}
                     onClick={(e) => {
                       e.stopPropagation()
-                      soundEngine.playClick()
-                      if (plan.name === 'Enterprise') {
-                        onNavigate?.('contact')
-                      } else {
-                        onSelectPlan?.(plan.name)
-                        onNavigate?.('download')
-                      }
+                      void handlePlanAction(plan)
                     }}
                     type="button"
-                    className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm tracking-tight transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm tracking-tight transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed ${
                       plan.highlight
                         ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] hover:bg-zinc-100'
                         : 'bg-[#161324] hover:bg-[#201c34] text-white border border-[#2d2844]'
                     }`}
                   >
-                    <span>{plan.ctaText}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    {loadingPlan === plan.name ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Connecting Gateway...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{plan.ctaText}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </motion.button>
                 </div>
               </div>

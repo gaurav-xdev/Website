@@ -8,6 +8,8 @@ import { EcosystemSection } from './components/EcosystemSection'
 import { ContactSection } from './components/ContactSection'
 import { Footer } from './components/Footer'
 import { GetOsmooModal } from './components/GetOsmooModal'
+import { AuthModal } from './components/AuthModal'
+import { CookieConsentBanner } from './components/CookieConsentBanner'
 import { Navbar } from './components/Navbar'
 
 // Dedicated Pages
@@ -17,28 +19,87 @@ import { FaqPage } from './pages/FaqPage'
 import { GetOsmooPage } from './pages/GetOsmooPage'
 import { PricingPage } from './pages/PricingPage'
 
-import { PersistentCompanionScene, type CompanionExpression } from './components/PersistentCompanionScene'
+// Dedicated Legal Pages
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage'
+import { TermsOfUsePage } from './pages/legal/TermsOfUsePage'
+import { CookiePolicyPage } from './pages/legal/CookiePolicyPage'
+import { AiSafetyPage } from './pages/legal/AiSafetyPage'
+import { ContactLegalPage } from './pages/legal/ContactLegalPage'
+import { RefundsPage } from './pages/legal/RefundsPage'
+import { EulaPage } from './pages/legal/EulaPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
-export type PageRoute = 'home' | 'how-it-works' | 'privacy' | 'faq' | 'pricing' | 'download'
+import { PersistentCompanionScene, type CompanionExpression } from './components/PersistentCompanionScene'
+import { soundEngine } from './utils/soundEngine'
+
+export type PageRoute =
+  | 'home'
+  | 'how-it-works'
+  | 'privacy'
+  | 'faq'
+  | 'pricing'
+  | 'download'
+  | 'verify'
+  | 'legal/privacy'
+  | 'legal/terms'
+  | 'legal/cookies'
+  | 'legal/ai-safety'
+  | 'legal/contact'
+  | 'legal/refunds'
+  | 'legal/eula'
+
+const VALID_ROUTES: PageRoute[] = [
+  'how-it-works',
+  'privacy',
+  'faq',
+  'pricing',
+  'download',
+  'verify',
+  'legal/privacy',
+  'legal/terms',
+  'legal/cookies',
+  'legal/ai-safety',
+  'legal/contact',
+  'legal/refunds',
+  'legal/eula',
+]
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageRoute>('home')
   const [companionExpression, setCompanionExpression] = useState<CompanionExpression>('neutral')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
-  // Listen to URL hash routing for direct page linking (e.g. #/pricing or #pricing)
+  // Listen to URL hash routing for direct page linking (e.g. #/pricing or #legal/privacy)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase()
-      if (['how-it-works', 'privacy', 'faq', 'pricing', 'download'].includes(hash)) {
+      // Check if URL contains OAuth fragments like #access_token= or #error=
+      const rawHash = window.location.hash
+      if (rawHash.includes('access_token=') || rawHash.includes('error=')) {
+        // Supabase client handles parsing this token via detectSessionInUrl: true.
+        // We open AuthModal so user immediately sees their authenticated session.
+        setIsAuthModalOpen(true)
+        // Clean fragment from URL bar after Supabase picks it up
+        setTimeout(() => {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          }
+        }, 500)
+        return
+      }
+
+      const hash = rawHash.replace(/^#\/?/, '').toLowerCase()
+      if (VALID_ROUTES.includes(hash as PageRoute)) {
         setCurrentPage(hash as PageRoute)
         setCompanionExpression('neutral')
         setIsModalOpen(false)
+        setIsAuthModalOpen(false)
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else if (hash === 'home' || hash === '') {
         setCurrentPage('home')
         setCompanionExpression('neutral')
         setIsModalOpen(false)
+        setIsAuthModalOpen(false)
       }
     }
 
@@ -55,6 +116,8 @@ export default function App() {
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
+      wheelMultiplier: 1.0,
+      touchMultiplier: 1.5,
     })
 
     function raf(time: number) {
@@ -67,33 +130,54 @@ export default function App() {
     return () => {
       lenis.destroy()
     }
-  }, [currentPage])
+  }, [])
 
-  const navigateTo = (page: string) => {
-    const clean = page.replace(/^#\/?/, '') as PageRoute
-    setCurrentPage(clean)
-    setCompanionExpression('neutral')
-    setIsModalOpen(false)
-    window.location.hash = `#${clean}`
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  const navigateTo = (tab: string) => {
+    soundEngine.playClick()
+    const targetRoute = tab.toLowerCase() as PageRoute
+    if (VALID_ROUTES.includes(targetRoute)) {
+      window.location.hash = targetRoute
+      setCurrentPage(targetRoute)
+      setCompanionExpression('neutral')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (tab === 'home') {
+      window.location.hash = 'home'
+      setCurrentPage('home')
+      setCompanionExpression('neutral')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      // Anchor scroll fallback (e.g. #features, #ecosystem, #contact)
+      const element = document.getElementById(tab)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+      } else {
+        window.location.hash = 'home'
+        setCurrentPage('home')
+      }
+    }
   }
 
+  const isLegalPage = currentPage.startsWith('legal/')
+
   return (
-    <div className="min-h-screen w-full bg-[#050508] text-[#ebeaef] font-sans selection:bg-white selection:text-black flex flex-col justify-between">
-      {/* ─── GLOBAL TOP NAVIGATION ─── */}
-      <div className="w-full max-w-[1440px] mx-auto">
+    <div className="relative min-h-screen w-full bg-[#07080a] text-[#EBEAEF] flex flex-col font-sans selection:bg-purple-500/30 selection:text-white">
+      {/* ─── GLOBAL FIXED NAVIGATION BAR ─── */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex justify-center w-full px-2 sm:px-4 pointer-events-none pt-3 sm:pt-4">
         <Navbar
           activePage={currentPage}
           onNavigate={navigateTo}
           onOpenModal={() => setIsModalOpen(true)}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
         />
       </div>
 
-      {/* ─── PERSISTENT SCROLL-LINKED 3D COMPANION ─── */}
-      <PersistentCompanionScene currentPage={currentPage} expression={companionExpression} />
+      {/* ─── PERSISTENT SCROLL-LINKED 3D COMPANION (Hidden on text-heavy legal views) ─── */}
+      {!isLegalPage && (
+        <PersistentCompanionScene currentPage={currentPage} expression={companionExpression} />
+      )}
 
       {/* ─── CONDITIONAL MULTI-PAGE ROUTING ─── */}
-      <main className="flex-1 w-full flex flex-col">
+      <main className="flex-1 w-full flex flex-col pt-16 sm:pt-20">
         {/* PAGE: HOME (FLAGSHIP HERO + 3D MODEL CANVAS + DESKTOP SHOWCASE) */}
         {currentPage === 'home' && (
           <div className="w-full flex flex-col">
@@ -127,29 +211,16 @@ export default function App() {
                     <div className="pt-2">
                       <button
                         type="button"
-                        onClick={() => navigateTo('download')}
+                        onClick={() => {
+                          soundEngine.playClick()
+                          setIsModalOpen(true)
+                        }}
                         className="relative inline-flex items-center justify-center px-7 py-2.5 rounded-full bg-white text-[#0a0a0c] text-[13px] font-semibold hover:bg-zinc-200 transition-all active:scale-95 shadow-[0_0_24px_rgba(255,255,255,0.35)] hover:shadow-[0_0_34px_rgba(255,255,255,0.55)] cursor-pointer"
                       >
-                        Get OSMOO
+                        Join the Waitlist
                       </button>
                     </div>
                   </div>
-                </div>
-
-                {/* Sparkle Star */}
-                <div className="absolute bottom-6 right-8 z-10 pointer-events-none select-none">
-                  <svg
-                    className="w-8 h-8 sm:w-9 sm:h-9 text-[#8c8d8f]/80"
-                    viewBox="0 0 39 39"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M19.5 0C19.5 10.7695 28.2305 19.5 39 19.5C28.2305 19.5 19.5 28.2305 19.5 39C19.5 28.2305 10.7695 19.5 0 19.5C10.7695 19.5 19.5 10.7695 19.5 0Z"
-                      fill="currentColor"
-                    />
-                  </svg>
                 </div>
               </div>
             </div>
@@ -182,7 +253,7 @@ export default function App() {
           <HowItWorksPage onNavigate={navigateTo} />
         )}
 
-        {/* PAGE 2: PRIVACY & SECURITY */}
+        {/* PAGE 2: PRIVACY & SECURITY ARCHITECTURE */}
         {currentPage === 'privacy' && (
           <PrivacySecurityPage onNavigate={navigateTo} />
         )}
@@ -192,7 +263,7 @@ export default function App() {
           <FaqPage onNavigate={navigateTo} />
         )}
 
-        {/* PAGE 4: GET OSMOO DOWNLOAD HUB */}
+        {/* PAGE 4: GET OSMOO DOWNLOAD & EARLY ACCESS HUB */}
         {currentPage === 'download' && (
           <GetOsmooPage
             onNavigate={navigateTo}
@@ -206,19 +277,63 @@ export default function App() {
             onNavigate={navigateTo}
             onHoverPlan={setCompanionExpression}
             activeExpression={companionExpression}
+            onOpenEarlyAccessModal={() => setIsModalOpen(true)}
             onSelectPlan={(plan) => {
-              console.log('Selected plan:', plan)
-              navigateTo('download')
+              if (plan.toLowerCase() === 'enterprise') {
+                navigateTo('contact')
+              } else {
+                navigateTo('download')
+              }
             }}
           />
+        )}
+
+        {/* PAGE: SECURE EMAIL VERIFICATION */}
+        {currentPage === 'verify' && (
+          <VerifyEmailPage onNavigate={navigateTo} />
+        )}
+
+        {/* ─── DEDICATED PRODUCTION LEGAL ROUTES ─── */}
+        {currentPage === 'legal/privacy' && (
+          <PrivacyPolicyPage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/terms' && (
+          <TermsOfUsePage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/cookies' && (
+          <CookiePolicyPage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/ai-safety' && (
+          <AiSafetyPage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/contact' && (
+          <ContactLegalPage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/refunds' && (
+          <RefundsPage onNavigate={navigateTo} />
+        )}
+
+        {currentPage === 'legal/eula' && (
+          <EulaPage onNavigate={navigateTo} />
         )}
       </main>
 
       {/* ─── GLOBAL LUXURY FOOTER ─── */}
-      <Footer onOpenModal={() => setIsModalOpen(true)} />
+      <Footer onOpenModal={() => setIsModalOpen(true)} onNavigate={navigateTo} />
 
       {/* Interactive Waitlist / Access Modal */}
       <GetOsmooModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Supabase Email OTP Auth & Account Modal */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+
+      {/* Cookie Consent Banner */}
+      <CookieConsentBanner onNavigate={navigateTo} />
     </div>
   )
 }

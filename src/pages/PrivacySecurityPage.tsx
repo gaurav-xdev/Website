@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { ShieldCheck, Cpu, KeyRound, CheckSquare, HardDrive, AlertTriangle } from 'lucide-react'
+import { ShieldCheck, Cpu, KeyRound, CheckSquare, HardDrive, AlertTriangle, Database } from 'lucide-react'
 
 interface PrivacySecurityPageProps {
   onNavigate?: (tab: string) => void
@@ -8,34 +8,40 @@ interface PrivacySecurityPageProps {
 export function PrivacySecurityPage({ onNavigate }: PrivacySecurityPageProps) {
   const cards = [
     {
-      title: 'Local Processing vs. External AI',
+      title: 'Local Computation & Neural Boundaries',
       icon: Cpu,
       description:
-        'Run native lightweight models directly on your hardware using Apple Silicon Neural Engine or Windows DirectML with zero cloud transmission. When external frontier models are invoked, requests route exclusively through zero-retention cryptographic tunnels that never train on your data.',
+        'OSMOO is designed with a local-first architecture. The 3D companion runtime, local intent models, and workspace indexing execute natively on your device utilizing Apple Silicon or Windows DirectML acceleration. When external frontier models are invoked, only explicit, user-approved context is transmitted over encrypted TLS 1.3 tunnels.',
     },
     {
-      title: 'Permissions',
+      title: 'Web Platform Data Collection & Services',
+      icon: Database,
+      description:
+        'On our website, we collect only the minimal data required to provide services: email addresses for one-time passcode (OTP) authentication via Supabase Auth, early access waitlist entries, contact inquiries, and subscription billing state managed directly through PCI-compliant provider Dodo Payments. We never sell personal data or deploy invasive ad tracking.',
+    },
+    {
+      title: 'Permission Sandboxing & Access Boundaries',
       icon: KeyRound,
       description:
-        'Granular OS-level boundaries strictly enforced by design. You specify exactly which project directories, terminal workspaces, and application windows OSMOO can observe. Background activity outside granted sandboxes is structurally prohibited.',
+        'Granular operating system permission boundaries. You specify precisely which directories, terminal workspaces, and application contexts OSMOO can observe. Background activity outside granted directories is structurally restricted by OS sandboxing policies.',
     },
     {
-      title: 'Approval Flows',
+      title: 'Deterministic Approvals Before Mutations',
       icon: CheckSquare,
       description:
-        'Deterministic guardrails before every mutation. OSMOO previews visual AST diffs, shell dry-runs, and file modifications with explicit one-click approvals before touching your filesystem or repositories.',
+        'Zero silent execution. OSMOO generates visual AST diffs, shell command dry-runs, and file changes with mandatory explicit user confirmation before any modifications are committed to your filesystem or version control repositories.',
     },
     {
-      title: 'Data Handling',
+      title: 'Encryption & Database Security (RLS)',
       icon: HardDrive,
       description:
-        'Zero telemetry, zero user tracking, and zero third-party logging. All embeddings, contextual memory indexes, and neural session caches reside entirely on your local encrypted NVMe storage (AES-256) and can be purged instantly.',
+        'All cloud-persisted user profiles and subscription entitlements are isolated using PostgreSQL Row-Level Security (RLS) in Supabase. Users can only select or update their own authenticated records. Webhook signatures and payment events are verified with database-enforced idempotency.',
     },
     {
-      title: 'Known Limitations',
+      title: 'Architectural Boundaries & Legal Notice',
       icon: AlertTriangle,
       description:
-        'Transparent architectural boundaries. OSMOO never circumvents OS security sandboxes, cannot access unmounted network volumes without explicit tokens, and will decline any non-deterministic shell action lacking verified undo protocols.',
+        'Osmiora Computational Systems operates with transparent technical disclosures. OSMOO does not claim impossible air-gapping when internet-enabled features are activated. Formal SOC2 and ISO compliance certifications represent roadmap targets currently in preparation.',
     },
   ]
 
@@ -57,9 +63,12 @@ export function PrivacySecurityPage({ onNavigate }: PrivacySecurityPageProps) {
             <br />
             SECURITY
           </h1>
+          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">
+            Accurate, verifiable security boundaries and data practices for Osmiora Computational Systems.
+          </p>
         </div>
 
-        {/* ─── VERTICAL STACK OF 5 CARDS MATCHING REFERENCE ─── */}
+        {/* ─── VERTICAL STACK OF CARDS MATCHING REFERENCE ─── */}
         <div className="w-full space-y-4 sm:space-y-5 text-left">
           {cards.map((card, idx) => {
             const Icon = card.icon

@@ -53,8 +53,8 @@ export function normalizeIpAddress(rawIp: string): string {
 }
 
 /**
- * Resolves HMAC secret with production fail-closed enforcement.
- * In production, RATE_LIMIT_HMAC_SECRET or SUPABASE_SERVICE_ROLE_KEY is required.
+ * Resolves dedicated HMAC secret with production fail-closed enforcement.
+ * In production, dedicated RATE_LIMIT_HMAC_SECRET is strictly required.
  */
 export function getHmacSecret(): string {
   const envSecret = process.env.RATE_LIMIT_HMAC_SECRET
@@ -62,14 +62,9 @@ export function getHmacSecret(): string {
     return envSecret.trim()
   }
 
-  const supabaseSecret = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (supabaseSecret && supabaseSecret.trim().length > 20 && !supabaseSecret.includes('your_supabase_service_role')) {
-    return supabaseSecret.trim()
-  }
-
   const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
   if (isProduction) {
-    throw new Error('Security configuration error: RATE_LIMIT_HMAC_SECRET or SUPABASE_SERVICE_ROLE_KEY must be configured in production.')
+    throw new Error('Security configuration error: Dedicated RATE_LIMIT_HMAC_SECRET must be configured in production.')
   }
 
   return 'osmoo_dev_privacy_salt_local'

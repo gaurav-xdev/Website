@@ -17,30 +17,23 @@ describe('Rate Limit HMAC Security & Checkout Hardening', () => {
   })
 
   describe('Rate Limit HMAC Secret Resolution', () => {
-    it('uses RATE_LIMIT_HMAC_SECRET when configured', () => {
+    it('uses dedicated RATE_LIMIT_HMAC_SECRET when configured', () => {
       process.env.RATE_LIMIT_HMAC_SECRET = 'custom-dedicated-hmac-secret-123'
       expect(getHmacSecret()).toBe('custom-dedicated-hmac-secret-123')
     })
 
-    it('falls back to SUPABASE_SERVICE_ROLE_KEY when RATE_LIMIT_HMAC_SECRET is unset', () => {
+    it('fails closed and throws error in production when RATE_LIMIT_HMAC_SECRET is missing', () => {
       delete process.env.RATE_LIMIT_HMAC_SECRET
       process.env.SUPABASE_SERVICE_ROLE_KEY = 'eyJh...super-long-service-role-key-32-chars-long'
-      expect(getHmacSecret()).toBe('eyJh...super-long-service-role-key-32-chars-long')
-    })
-
-    it('fails closed and throws error in production when no secure secret is set', () => {
-      delete process.env.RATE_LIMIT_HMAC_SECRET
-      delete process.env.SUPABASE_SERVICE_ROLE_KEY
       process.env.NODE_ENV = 'production'
 
       expect(() => getHmacSecret()).toThrow(
-        /RATE_LIMIT_HMAC_SECRET or SUPABASE_SERVICE_ROLE_KEY must be configured in production/
+        /Dedicated RATE_LIMIT_HMAC_SECRET must be configured in production/
       )
     })
 
     it('allows development fallback in test/development environment', () => {
       delete process.env.RATE_LIMIT_HMAC_SECRET
-      delete process.env.SUPABASE_SERVICE_ROLE_KEY
       process.env.NODE_ENV = 'development'
       delete process.env.VERCEL_ENV
 

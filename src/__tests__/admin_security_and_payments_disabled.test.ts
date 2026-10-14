@@ -172,6 +172,51 @@ describe('Admin Security, Authorization & Pre-Launch Payment Gate', () => {
       expect(result.status).toBe(503)
       expect(result.error).toContain('not configured')
     })
+
+    it('rejects anonymous caller across all 5 administrative endpoints with HTTP 401', async () => {
+      const overviewHandler = (await import('../../api/admin/overview.js')).default
+      const waitlistHandler = (await import('../../api/admin/waitlist.js')).default
+      const contactsHandler = (await import('../../api/admin/contacts.js')).default
+      const paymentsHandler = (await import('../../api/admin/payments.js')).default
+      const auditLogsHandler = (await import('../../api/admin/audit-logs.js')).default
+
+      function createMockRes() {
+        const mock = {
+          statusCode: 200,
+          headers: {} as Record<string, string>,
+          body: null as any,
+          setHeader: vi.fn((key: string, value: string) => {
+            mock.headers[key.toLowerCase()] = value
+            return mock as unknown as ApiResponse
+          }),
+          status: vi.fn((code: number) => {
+            mock.statusCode = code
+            return mock as unknown as ApiResponse
+          }),
+          json: vi.fn((data: unknown) => {
+            mock.body = data
+            return mock as unknown as ApiResponse
+          }),
+        }
+        return mock as unknown as ApiResponse & { statusCode: number; body: any }
+      }
+
+      const endpoints = [
+        { name: 'overview', handler: overviewHandler },
+        { name: 'waitlist', handler: waitlistHandler },
+        { name: 'contacts', handler: contactsHandler },
+        { name: 'payments', handler: paymentsHandler },
+        { name: 'audit-logs', handler: auditLogsHandler },
+      ]
+
+      for (const ep of endpoints) {
+        const res = createMockRes()
+        await ep.handler({ method: 'GET', headers: {} } as ApiRequest, res)
+        expect(res.statusCode, `${ep.name} should reject anonymous request with 401`).toBe(401)
+        expect(res.body.success).toBe(false)
+        expect(res.body.error).toContain('Missing or malformed authentication header')
+      }
+    })
   })
 
   describe('Admin Migration RLS & Security Locks', () => {

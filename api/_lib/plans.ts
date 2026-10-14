@@ -57,3 +57,14 @@ export function getServerPlan(planId: string): ServerPlan | undefined {
   if (!planId || typeof planId !== 'string') return undefined
   return SERVER_PLANS[planId.toLowerCase()]
 }
+
+/**
+ * Server-side payment feature flag.
+ * Default is strictly FALSE (disabled) in all environments until the OSMOO desktop application
+ * is released and payment provider onboarding is fully certified.
+ * Only the explicit string 'true' in PAYMENTS_ENABLED will enable checkouts.
+ */
+export function arePaymentsEnabled(): boolean {
+  return process.env.PAYMENTS_ENABLED === 'true'
+}
+

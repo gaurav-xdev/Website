@@ -1,28 +1,37 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+function getSupabaseUrl(): string | undefined {
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+}
+
+function getServiceRoleKey(): string | undefined {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY
+}
 
 let adminClient: SupabaseClient | null = null
 
 export function isSupabaseAdminConfigured(): boolean {
+  const url = getSupabaseUrl()
+  const key = getServiceRoleKey()
   return Boolean(
-    supabaseUrl &&
-    supabaseUrl.startsWith('http') &&
-    !supabaseUrl.includes('your-project.supabase.co') &&
-    serviceRoleKey &&
-    serviceRoleKey.length > 20 &&
-    !serviceRoleKey.includes('your_supabase_service_role')
+    url &&
+    url.startsWith('http') &&
+    !url.includes('your-project.supabase.co') &&
+    key &&
+    key.length > 20 &&
+    !key.includes('your_supabase_service_role')
   )
 }
 
 export function getSupabaseAdmin(): SupabaseClient | null {
-  if (!isSupabaseAdminConfigured() || !supabaseUrl || !serviceRoleKey) {
+  const url = getSupabaseUrl()
+  const key = getServiceRoleKey()
+  if (!isSupabaseAdminConfigured() || !url || !key) {
     return null
   }
 
   if (!adminClient) {
-    adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    adminClient = createClient(url, key, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

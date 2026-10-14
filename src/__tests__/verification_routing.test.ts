@@ -24,6 +24,12 @@ describe('Verification & URL Hash Routing Regression Tests', () => {
       expect(parseRouteFromUrl('#/legal/terms?ref=footer')).toBe('legal/terms')
     })
 
+    it('correctly parses non-public #admin route', () => {
+      expect(parseRouteFromUrl('#admin')).toBe('admin')
+      expect(parseRouteFromUrl('#/admin')).toBe('admin')
+      expect(parseRouteFromUrl('', '/admin')).toBe('admin')
+    })
+
     it('falls back to pathname when hash is empty or not matching', () => {
       expect(parseRouteFromUrl('', '/verify')).toBe('verify')
       expect(parseRouteFromUrl('', '/pricing')).toBe('pricing')

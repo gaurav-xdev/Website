@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Check, Sparkles, Shield, ArrowRight, Info, Loader2, AlertCircle, ExternalLink } from 'lucide-react'
+import { Check, Sparkles, Shield, ArrowRight, Info, AlertCircle, ExternalLink } from 'lucide-react'
 import type { CompanionExpression } from '../components/PersistentCompanionScene'
 import { soundEngine } from '../utils/soundEngine'
-import { createCheckout } from '../lib/api/client'
-import { getCurrentSession } from '../lib/supabase/client'
 
 interface PricingPageProps {
   onNavigate?: (tab: string) => void
@@ -22,7 +20,6 @@ export function PricingPage({
   activeExpression = 'neutral',
 }: PricingPageProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<{
     title: string
     message: string
@@ -93,14 +90,14 @@ export function PricingPage({
     },
     {
       name: 'Max',
-      badge: 'Proposed Tier',
+      badge: 'Available with Desktop App Launch',
       expression: 'max',
       priceMonthly: 49,
       priceAnnual: 39,
       period: 'per month',
       description: 'Advanced power-user tier designed for deep multi-agent pipelines and heavy workloads.',
       highlight: false,
-      ctaText: 'Request Max Access',
+      ctaText: 'Coming Soon (Desktop App)',
       reactionHint: 'Excited wide eyes, radiant emission & joyful bounce',
       features: [
         'Everything in Pro, plus:',
@@ -157,9 +154,9 @@ export function PricingPage({
     if (plan.name === 'Pro') {
       // Direct users to waitlist to claim The Founding 50 Pro reward
       setCheckoutNotice({
-        title: 'The Founding 50 Offer Active',
+        title: 'The Founding 50 Offer Active (12 Months Free)',
         message:
-          'Paid checkouts are currently reserved while the desktop engine is in preview. Join the Early Access waitlist to qualify for 12 complimentary months of OSMOO Pro.',
+          'Commercial checkouts are temporarily disabled while the OSMOO desktop application is prepared for release. The first 50 verified signups receive 12 complimentary months of OSMOO Pro.',
         type: 'info',
       })
       if (onOpenEarlyAccessModal) {
@@ -168,34 +165,19 @@ export function PricingPage({
       return
     }
 
-    // Max: Server-side Checkout or Setup Mode Notice
-    setLoadingPlan(plan.name)
-    setCheckoutNotice(null)
-
-    const session = await getCurrentSession()
-    const res = await createCheckout(
-      {
-        planId: plan.name.toLowerCase() as 'pro' | 'max',
-        billingInterval: billingCycle === 'annual' ? 'year' : 'month',
-      },
-      session?.access_token
-    )
-
-    setLoadingPlan(null)
-
-    if (res.success && res.data?.checkoutUrl && res.data.checkoutUrl.startsWith('http')) {
-      window.location.assign(res.data.checkoutUrl)
+    if (plan.name === 'Max') {
+      // Direct users to Early Access while paid checkouts are paused pre-desktop release
+      setCheckoutNotice({
+        title: 'Available with Desktop App Launch',
+        message:
+          'Paid subscriptions are temporarily paused until the OSMOO desktop application launches. Register for Early Access to receive immediate priority notification when the desktop engine becomes available.',
+        type: 'info',
+      })
+      if (onOpenEarlyAccessModal) {
+        onOpenEarlyAccessModal()
+      }
       return
     }
-
-    // Honest handling of setup mode or server configuration
-    setCheckoutNotice({
-      title: 'Commercial Payment Gateway in Setup Mode',
-      message:
-        res.error ||
-        `Dodo Payments merchant onboarding is being finalized for Osmiora Computational Systems. To reserve your ${plan.name} seat and join the verified cohort, please register for Early Access.`,
-      type: 'info',
-    })
   }
 
   return (
@@ -219,6 +201,12 @@ export function PricingPage({
           <p className="text-sm sm:text-base text-zinc-400 font-sans tracking-tight max-w-lg mx-auto leading-relaxed">
             Transparent pricing for individuals, power users, and engineering teams. Zero hidden fees or unverified quotas. Hover over any plan to preview your 3D companion's reaction.
           </p>
+
+          {/* Pre-Launch Payment Status Notice */}
+          <div className="mx-auto max-w-xl px-4 py-2.5 rounded-xl bg-purple-950/30 border border-purple-800/40 text-xs text-purple-200/90 flex items-center justify-center gap-2">
+            <Info className="w-4 h-4 text-purple-400 shrink-0" />
+            <span>Commercial checkouts are paused during pre-launch. Paid tiers activate alongside the desktop application release. Join Early Access to qualify for 12 months free Pro via The Founding 50.</span>
+          </div>
 
           {/* Billing Cycle Switcher */}
           <div className="pt-2 flex items-center justify-center">
@@ -412,7 +400,6 @@ export function PricingPage({
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    disabled={loadingPlan === plan.name}
                     onClick={(e) => {
                       e.stopPropagation()
                       void handlePlanAction(plan)
@@ -424,17 +411,8 @@ export function PricingPage({
                         : 'bg-[#161324] hover:bg-[#201c34] text-white border border-[#2d2844]'
                     }`}
                   >
-                    {loadingPlan === plan.name ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Connecting Gateway...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{plan.ctaText}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
-                    )}
+                    <span>{plan.ctaText}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </motion.button>
                 </div>
               </div>

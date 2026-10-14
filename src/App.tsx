@@ -28,6 +28,7 @@ import { ContactLegalPage } from './pages/legal/ContactLegalPage'
 import { RefundsPage } from './pages/legal/RefundsPage'
 import { EulaPage } from './pages/legal/EulaPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
+import { AdminDashboardPage } from './pages/AdminDashboardPage'
 
 import { PersistentCompanionScene, type CompanionExpression } from './components/PersistentCompanionScene'
 import { soundEngine } from './utils/soundEngine'
@@ -40,6 +41,7 @@ export type PageRoute =
   | 'pricing'
   | 'download'
   | 'verify'
+  | 'admin'
   | 'legal/privacy'
   | 'legal/terms'
   | 'legal/cookies'
@@ -55,6 +57,7 @@ const VALID_ROUTES: PageRoute[] = [
   'pricing',
   'download',
   'verify',
+  'admin',
   'legal/privacy',
   'legal/terms',
   'legal/cookies',
@@ -195,6 +198,10 @@ export default function App() {
   }
 
   const isLegalPage = currentPage.startsWith('legal/')
+
+  if (currentPage === 'admin') {
+    return <AdminDashboardPage onNavigate={navigateTo} />
+  }
 
   return (
     <div className="relative min-h-screen w-full bg-[#07080a] text-[#EBEAEF] flex flex-col font-sans selection:bg-purple-500/30 selection:text-white">

@@ -1,7 +1,7 @@
 import type { ApiRequest, ApiResponse } from './_lib/types.js'
 import { checkoutSchema, formatZodErrors } from './_lib/validation.js'
 import { checkRateLimit, extractClientIpHash } from './_lib/rateLimit.js'
-import { getServerPlan } from './_lib/plans.js'
+import { getServerPlan, arePaymentsEnabled } from './_lib/plans.js'
 import { createDodoCheckout } from './_lib/dodoPayments.js'
 import { getSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { sendSafeError } from './_lib/safeError.js'
@@ -86,6 +86,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         checkoutUrl: '/#contact?category=Enterprise+Solutions',
       },
       message: 'Enterprise tier requires bespoke architectural consultation.',
+    })
+  }
+
+  // Server-side payment gate: payments are disabled until desktop app launch
+  if (plan.requiresCheckout && !arePaymentsEnabled()) {
+    return res.status(403).json({
+      success: false,
+      code: 'PAYMENTS_DISABLED',
+      paymentsDisabled: true,
+      error: 'Paid checkouts are temporarily disabled until the OSMOO desktop application is released.',
     })
   }
 

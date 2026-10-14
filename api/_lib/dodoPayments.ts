@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { getServerPlan } from './plans.js'
+import { getServerPlan, arePaymentsEnabled } from './plans.js'
 import {
   recordPaymentEvent,
   claimPaymentEventForProcessing,
@@ -45,6 +45,7 @@ export interface CheckoutResult {
   sessionId?: string
   error?: string
   setupMode?: boolean
+  paymentsDisabled?: boolean
 }
 
 export async function createDodoCheckout(params: CreateCheckoutParams): Promise<CheckoutResult> {
@@ -55,6 +56,15 @@ export async function createDodoCheckout(params: CreateCheckoutParams): Promise<
 
   if (!plan.requiresCheckout) {
     return { success: false, error: `Plan '${plan.name}' does not require checkout.` }
+  }
+
+  if (!arePaymentsEnabled()) {
+    return {
+      success: false,
+      setupMode: true,
+      paymentsDisabled: true,
+      error: 'Paid checkouts are temporarily disabled until the OSMOO desktop application is released.',
+    }
   }
 
   if (!isDodoConfigured()) {

@@ -78,7 +78,36 @@ describe('Rate Limit HMAC Security & Checkout Hardening', () => {
   })
 
   describe('Checkout Hardening & Production Safeguards', () => {
+    it('disables paid checkouts by default when PAYMENTS_ENABLED is not explicitly true', async () => {
+      delete process.env.PAYMENTS_ENABLED
+      process.env.DODO_PAYMENTS_API_KEY = 'sk_live_valid_production_secret_key_9999'
+
+      const result = await createDodoCheckout({
+        planId: 'pro',
+        userEmail: 'subscriber@example.com',
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.paymentsDisabled).toBe(true)
+      expect(result.error).toContain('Paid checkouts are temporarily disabled')
+    })
+
+    it('disables paid checkouts when PAYMENTS_ENABLED is set to false or invalid string', async () => {
+      process.env.PAYMENTS_ENABLED = 'false'
+      process.env.DODO_PAYMENTS_API_KEY = 'sk_live_valid_production_secret_key_9999'
+
+      const result = await createDodoCheckout({
+        planId: 'max',
+        userEmail: 'subscriber@example.com',
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.paymentsDisabled).toBe(true)
+      expect(result.error).toContain('Paid checkouts are temporarily disabled')
+    })
+
     it('fails safely into setupMode in production when product ID uses placeholder prefix', async () => {
+      process.env.PAYMENTS_ENABLED = 'true'
       process.env.NODE_ENV = 'production'
       process.env.DODO_PAYMENTS_API_KEY = 'sk_live_valid_production_secret_key_9999'
       delete process.env.DODO_PRO_PRODUCT_ID // plan defaults to 'p_osmoo_pro_monthly'

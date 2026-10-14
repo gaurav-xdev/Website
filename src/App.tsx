@@ -64,17 +64,58 @@ const VALID_ROUTES: PageRoute[] = [
   'legal/eula',
 ]
 
+/**
+ * Safely parses the target route name from URL hash or pathname, separating
+ * query parameters (e.g. #verify?token=... or #/pricing?checkout=success).
+ * Preserves the full URL and query parameters intact for page components.
+ */
+export function parseRouteFromUrl(hash: string, pathname = ''): PageRoute | 'home' {
+  const rawHash = (hash || '').trim()
+
+  // 1. If OAuth fragment, return 'home' so auth modal can handle it
+  if (rawHash.includes('access_token=') || rawHash.includes('error=')) {
+    return 'home'
+  }
+
+  // 2. Strip leading '#' and '/'
+  const hashWithoutPrefix = rawHash.replace(/^#\/?/, '')
+
+  // 3. Separate route from query parameters (anything after '?')
+  let routeCandidate = ''
+  if (hashWithoutPrefix) {
+    const qIndex = hashWithoutPrefix.indexOf('?')
+    routeCandidate = qIndex !== -1 ? hashWithoutPrefix.slice(0, qIndex) : hashWithoutPrefix
+  }
+
+  // 4. Fallback to pathname routing if no hash route exists (e.g. /verify?token=...)
+  if (!routeCandidate && pathname) {
+    const pathClean = pathname.replace(/^\/+|\/+$/g, '')
+    if (pathClean) {
+      routeCandidate = pathClean
+    }
+  }
+
+  const normalized = routeCandidate.toLowerCase().trim()
+
+  if (VALID_ROUTES.includes(normalized as PageRoute)) {
+    return normalized as PageRoute
+  }
+
+  return 'home'
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageRoute>('home')
   const [companionExpression, setCompanionExpression] = useState<CompanionExpression>('neutral')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
-  // Listen to URL hash routing for direct page linking (e.g. #/pricing or #legal/privacy)
+  // Listen to URL hash routing for direct page linking (e.g. #verify?token=... or #legal/privacy)
   useEffect(() => {
     const handleHashChange = () => {
+      const rawHash = window.location.hash || ''
+
       // Check if URL contains OAuth fragments like #access_token= or #error=
-      const rawHash = window.location.hash
       if (rawHash.includes('access_token=') || rawHash.includes('error=')) {
         // Supabase client handles parsing this token via detectSessionInUrl: true.
         // We open AuthModal so user immediately sees their authenticated session.
@@ -88,18 +129,14 @@ export default function App() {
         return
       }
 
-      const hash = rawHash.replace(/^#\/?/, '').toLowerCase()
-      if (VALID_ROUTES.includes(hash as PageRoute)) {
-        setCurrentPage(hash as PageRoute)
-        setCompanionExpression('neutral')
-        setIsModalOpen(false)
-        setIsAuthModalOpen(false)
+      const targetRoute = parseRouteFromUrl(rawHash, window.location.pathname)
+      setCurrentPage(targetRoute)
+      setCompanionExpression('neutral')
+      setIsModalOpen(false)
+      setIsAuthModalOpen(false)
+
+      if (targetRoute !== 'home') {
         window.scrollTo({ top: 0, behavior: 'smooth' })
-      } else if (hash === 'home' || hash === '') {
-        setCurrentPage('home')
-        setCompanionExpression('neutral')
-        setIsModalOpen(false)
-        setIsAuthModalOpen(false)
       }
     }
 

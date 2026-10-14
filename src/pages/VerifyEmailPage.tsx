@@ -8,6 +8,30 @@ interface VerifyEmailPageProps {
   onNavigate: (tab: string) => void
 }
 
+/**
+ * Safely extracts verification token from hash query (#verify?token=...) or standard search query (?token=...)
+ */
+export function extractVerificationTokenFromUrl(hash: string, search = ''): string | null {
+  const cleanHash = (hash || '').trim()
+  let token: string | null = null
+
+  if (cleanHash.includes('?')) {
+    const hashQuery = cleanHash.slice(cleanHash.indexOf('?') + 1)
+    const hashParams = new URLSearchParams(hashQuery)
+    token = hashParams.get('token')
+  } else if (cleanHash.includes('token=')) {
+    const match = cleanHash.match(/token=([a-fA-F0-9]+)/)
+    if (match) token = match[1]
+  }
+
+  if (!token && search) {
+    const searchParams = new URLSearchParams(search)
+    token = searchParams.get('token')
+  }
+
+  return token ? token.trim() : null
+}
+
 export function VerifyEmailPage({ onNavigate }: VerifyEmailPageProps) {
   const [status, setStatus] = useState<'verifying' | 'verified' | 'already_verified' | 'expired' | 'invalid'>('verifying')
   const [result, setResult] = useState<VerificationResult | null>(null)
@@ -20,23 +44,17 @@ export function VerifyEmailPage({ onNavigate }: VerifyEmailPageProps) {
   const [resendError, setResendError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Parse token from hash (e.g. #verify?token=abc... or query string)
-    const hash = window.location.hash
-    let extractedToken: string | null = null
-
-    if (hash.includes('token=')) {
-      const match = hash.match(/token=([a-fA-F0-9]+)/)
-      if (match) extractedToken = match[1]
-    }
-
-    if (!extractedToken) {
-      const searchParams = new URLSearchParams(window.location.search)
-      extractedToken = searchParams.get('token')
-    }
+    const extractedToken = extractVerificationTokenFromUrl(window.location.hash, window.location.search)
 
     if (!extractedToken) {
       setStatus('invalid')
       setErrorMessage('No verification token provided in the URL.')
+      return
+    }
+
+    if (!/^[a-fA-F0-9]{32,128}$/.test(extractedToken)) {
+      setStatus('invalid')
+      setErrorMessage('Verification token format is malformed or invalid.')
       return
     }
 

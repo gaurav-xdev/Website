@@ -70,4 +70,33 @@ describe('Entitlement Function Authorization & Account Linking Security', () => 
     const statusResult = await getPaymentEventStatus('nonexistent-event')
     expect(statusResult.exists).toBe(false)
   })
+
+  it('revokes direct public write access on waitlist, entitlements, subscriptions, and payment tables', () => {
+    // Assert drop of permissive insert policies
+    expect(migrationSql).toContain('drop policy if exists "Anyone can submit early access request" on public.early_access_requests;')
+
+    // Assert revocation of all write permissions on sensitive tables
+    expect(migrationSql).toContain('revoke insert, update, delete, truncate on public.early_access_requests from anon, authenticated, public;')
+    expect(migrationSql).toContain('revoke insert, update, delete, truncate on public.founding_entitlements from anon, authenticated, public;')
+    expect(migrationSql).toContain('revoke insert, update, delete, truncate on public.entitlements from anon, authenticated, public;')
+    expect(migrationSql).toContain('revoke insert, update, delete, truncate on public.subscriptions from anon, authenticated, public;')
+    expect(migrationSql).toContain('revoke insert, update, delete, truncate on public.payment_events from anon, authenticated, public;')
+
+    // Assert operational grants to service_role
+    expect(migrationSql).toContain('grant all on public.early_access_requests to service_role;')
+    expect(migrationSql).toContain('grant all on public.founding_entitlements to service_role;')
+    expect(migrationSql).toContain('grant all on public.entitlements to service_role;')
+    expect(migrationSql).toContain('grant all on public.subscriptions to service_role;')
+    expect(migrationSql).toContain('grant all on public.payment_events to service_role;')
+  })
+
+  it('restricts verify_early_access_token RPC exclusively to service_role', () => {
+    expect(migrationSql).toContain(
+      'revoke execute on function public.verify_early_access_token(text) from public, anon, authenticated;'
+    )
+    expect(migrationSql).toContain(
+      'grant execute on function public.verify_early_access_token(text) to service_role;'
+    )
+  })
 })
+

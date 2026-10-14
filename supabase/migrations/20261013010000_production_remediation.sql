@@ -297,3 +297,31 @@ $$;
 
 revoke execute on function public.link_founding_50_account(uuid) from public, anon;
 grant execute on function public.link_founding_50_account(uuid) to authenticated, service_role;
+
+
+-- 6. Direct Write Lockdown: Revoke direct public/anon/authenticated write access
+-- All waitlist submissions, email verifications, entitlement mutations, and payment events
+-- MUST flow exclusively through validated server-side API endpoints using service_role.
+
+-- Drop any lingering permissive insert policies on early_access_requests
+drop policy if exists "Anyone can submit early access request" on public.early_access_requests;
+drop policy if exists "Public can insert early access request" on public.early_access_requests;
+
+-- Revoke all write privileges from public, anon, and authenticated roles
+revoke insert, update, delete, truncate on public.early_access_requests from anon, authenticated, public;
+revoke insert, update, delete, truncate on public.founding_entitlements from anon, authenticated, public;
+revoke insert, update, delete, truncate on public.entitlements from anon, authenticated, public;
+revoke insert, update, delete, truncate on public.subscriptions from anon, authenticated, public;
+revoke insert, update, delete, truncate on public.payment_events from anon, authenticated, public;
+
+-- Ensure service_role maintains full operational permissions for backend serverless handlers
+grant all on public.early_access_requests to service_role;
+grant all on public.founding_entitlements to service_role;
+grant all on public.entitlements to service_role;
+grant all on public.subscriptions to service_role;
+grant all on public.payment_events to service_role;
+
+-- Lock down verify_early_access_token RPC exclusively to service_role
+revoke execute on function public.verify_early_access_token(text) from public, anon, authenticated;
+grant execute on function public.verify_early_access_token(text) to service_role;
+

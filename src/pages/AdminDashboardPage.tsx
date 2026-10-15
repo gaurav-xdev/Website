@@ -351,7 +351,7 @@ export function AdminDashboardPage({ onNavigate }: AdminDashboardPageProps) {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-[#121116] font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
                   <span>{loginMethod === 'password' ? 'Authenticate' : 'Send One-Time Magic Link'}</span>
@@ -409,7 +409,7 @@ export function AdminDashboardPage({ onNavigate }: AdminDashboardPageProps) {
             </button>
             <button
               onClick={() => onNavigate?.('home')}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-mono text-white cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-mono text-[#121116] cursor-pointer"
             >
               Return Home
             </button>
@@ -483,7 +483,7 @@ export function AdminDashboardPage({ onNavigate }: AdminDashboardPageProps) {
                 }}
                 className={`px-4 py-2.5 rounded-xl font-mono text-xs font-medium flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-purple-600 text-white shadow-sm'
+                    ? 'bg-purple-600 text-[#121116] shadow-sm'
                     : 'text-zinc-400 hover:text-white hover:bg-[#181427]'
                 }`}
               >
@@ -665,7 +665,7 @@ export function AdminDashboardPage({ onNavigate }: AdminDashboardPageProps) {
                     }}
                     className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${
                       waitlistFilter === filter
-                        ? 'bg-purple-600 text-white font-bold'
+                        ? 'bg-purple-600 text-[#121116] font-bold'
                         : 'text-zinc-400 hover:text-white hover:bg-[#181427]'
                     }`}
                   >
@@ -798,7 +798,7 @@ export function AdminDashboardPage({ onNavigate }: AdminDashboardPageProps) {
                     }}
                     className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${
                       contactsStatus === st
-                        ? 'bg-purple-600 text-white font-bold'
+                        ? 'bg-purple-600 text-[#121116] font-bold'
                         : 'text-zinc-400 hover:text-white hover:bg-[#181427]'
                     }`}
                   >

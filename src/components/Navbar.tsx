@@ -97,7 +97,7 @@ export function Navbar({ activePage, onNavigate, onOpenModal, onOpenAuthModal }:
           aria-label={isSoundOn ? 'Disable audio effects' : 'Enable audio effects'}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all cursor-pointer ${
             isSoundOn
-              ? 'border-purple-500/40 bg-purple-950/40 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
+              ? 'border-purple-500/40 bg-purple-950/40 text-purple-200 shadow-[0_0_12px_rgba(185,169,149,0.25)]'
               : 'border-[#2d2b37] bg-[#121118]/70 text-[#858392] hover:text-[#c4c2d0] hover:border-[#403e4d]'
           }`}
         >

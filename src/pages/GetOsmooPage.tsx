@@ -75,7 +75,7 @@ export function GetOsmooPage({ onNavigate, onOpenModal }: GetOsmooPageProps) {
               onClick={() => setTargetOS('mac')}
               className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
                 targetOS === 'mac'
-                  ? 'bg-purple-600 text-white font-bold shadow-sm'
+                  ? 'bg-purple-600 text-[#121116] font-bold shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -86,7 +86,7 @@ export function GetOsmooPage({ onNavigate, onOpenModal }: GetOsmooPageProps) {
               onClick={() => setTargetOS('win')}
               className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
                 targetOS === 'win'
-                  ? 'bg-purple-600 text-white font-bold shadow-sm'
+                  ? 'bg-purple-600 text-[#121116] font-bold shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >

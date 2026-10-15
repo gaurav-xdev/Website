@@ -185,7 +185,7 @@ export function CookieConsentBanner({ onNavigate }: CookieConsentBannerProps) {
               <button
                 type="button"
                 onClick={handleSaveCustom}
-                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors flex items-center gap-1"
+                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-[#121116] text-xs font-semibold transition-colors flex items-center gap-1"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Save Choice</span>

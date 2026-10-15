@@ -71,7 +71,7 @@ export function LegalLayout({
                   onClick={() => onNavigate?.(item.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-purple-600 text-white font-bold shadow-sm'
+                      ? 'bg-purple-600 text-[#121116] font-bold shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   }`}
                 >

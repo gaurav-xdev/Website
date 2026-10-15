@@ -66,7 +66,7 @@ export function EcosystemSection({ onOpenModal }: EcosystemSectionProps) {
   return (
     <section id="ecosystem" className="relative w-full py-24 sm:py-32 px-4 sm:px-6 md:px-8 border-t border-[#1b1924]">
       {/* Background Glow */}
-      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-indigo-950/15 rounded-full blur-[180px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-[#B9A995]/15 rounded-full blur-[180px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}

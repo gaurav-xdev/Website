@@ -219,7 +219,7 @@ export function PricingPage({
                 }}
                 className={`px-4 py-1.5 rounded-full transition-all cursor-pointer ${
                   billingCycle === 'monthly'
-                    ? 'bg-purple-600 text-white font-bold shadow-sm'
+                    ? 'bg-purple-600 text-[#121116] font-bold shadow-sm'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -233,7 +233,7 @@ export function PricingPage({
                 }}
                 className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full transition-all cursor-pointer ${
                   billingCycle === 'annual'
-                    ? 'bg-purple-600 text-white font-bold shadow-sm'
+                    ? 'bg-purple-600 text-[#121116] font-bold shadow-sm'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -264,7 +264,7 @@ export function PricingPage({
                     soundEngine.playClick()
                     onOpenEarlyAccessModal()
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-[#121116] text-xs font-semibold transition-colors flex items-center gap-1.5"
                 >
                   <span>Join Waitlist</span>
                   <ExternalLink className="w-3 h-3" />
@@ -315,15 +315,15 @@ export function PricingPage({
                 }}
                 className={`relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 outline-none cursor-pointer select-none ${
                   isCardActive
-                    ? 'border-purple-400 ring-2 ring-purple-500/50 shadow-[0_0_35px_rgba(168,85,247,0.3)] ' +
+                    ? 'border-purple-400 ring-2 ring-purple-500/50 shadow-[0_0_35px_rgba(185,169,149,0.3)] ' +
                       (plan.highlight ? 'bg-gradient-to-b from-[#201838] to-[#120d24]' : 'bg-[#151124]')
                     : plan.highlight
-                    ? 'bg-gradient-to-b from-[#181427] to-[#0e0b17] border-2 border-purple-500/60 shadow-[0_15px_40px_rgba(147,51,234,0.18)] scale-[1.02]'
+                    ? 'bg-gradient-to-b from-[#181427] to-[#0e0b17] border-2 border-purple-500/60 shadow-[0_15px_40px_rgba(185,169,149,0.18)] scale-[1.02]'
                     : 'bg-[#0c0a13] border border-[#201d2e] hover:border-[#38314e] shadow-inner'
                 }`}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-bold tracking-wider uppercase shadow-md">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-purple-600 text-[#121116] text-[10px] font-bold tracking-wider uppercase shadow-md">
                     Recommended
                   </div>
                 )}

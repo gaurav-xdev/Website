@@ -148,7 +148,7 @@ export function MacbookShowcaseSection() {
                           <div className="flex items-center gap-2 pt-1">
                             <button
                               type="button"
-                              className="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white font-semibold text-[10px] transition-colors"
+                              className="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-[#121116] font-semibold text-[10px] transition-colors"
                             >
                               Execute Pipeline
                             </button>
